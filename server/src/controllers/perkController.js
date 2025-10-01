@@ -69,9 +69,54 @@ export async function createPerk(req, res, next) {
 }
 // TODO
 // Update an existing perk by ID and validate only the fields that are being updated 
+
+
+// Update an existing perk by ID and validate only the fields that are being updated
 export async function updatePerk(req, res, next) {
-  
+  try {
+    // First, check if the perk exists
+    const existingPerk = await Perk.findById(req.params.id);
+    if (!existingPerk) {
+      return res.status(404).json({ message: 'Perk not found' });
+    }
+
+    // Create a partial schema for validation (all fields optional)
+    const updatePerkSchema = Joi.object({
+      title: Joi.string().min(2).optional(),
+      description: Joi.string().allow('').optional(),
+      category: Joi.string().valid('food','tech','travel','fitness','other').optional(),
+      discountPercent: Joi.number().min(0).max(100).optional(),
+      merchant: Joi.string().allow('').optional()
+    });
+
+    // Validate only the fields that are being updated
+    const { value, error } = updatePerkSchema.validate(req.body);
+    if (error) {
+      return res.status(400).json({ message: error.message });
+    }
+
+    // Only update fields that are provided in the request body
+    const updatedPerk = await Perk.findByIdAndUpdate(
+      req.params.id,
+      { ...value },
+      { new: true, runValidators: true }
+    );
+
+    res.json({ perk: updatedPerk });
+    
+  } catch (err) {
+    // Handle duplicate key error (unique constraint violation)
+    if (err.code === 11000) {
+      return res.status(409).json({ message: 'Duplicate perk for this merchant' });
+    }
+    next(err);
+  }
 }
+
+
+
+  
+
 
 
 // Delete a perk by ID
